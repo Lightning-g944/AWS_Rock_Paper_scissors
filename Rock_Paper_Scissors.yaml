@@ -19,11 +19,11 @@ Parameters:
     Type: String
     Description: S3 key for the Lambda ZIP package
 
-  GlueCodeBucket:
+  GlueRunLambdaCodeBucket:
     Type: String
     Description: S3 Bucket for the Glue code
 
-  GlueCodeKey:
+  GlueRunLambdaCodeKey:
     Type: String
     Description: S3 Key for the Glue code
 
@@ -105,5 +105,5 @@ Resources:
       TemplateURL: components/lambda/LambdaRunGlueJob.yaml
       Parameters:
         LambdaIamRoleArn: !GetAtt LambdaExecutionRole.Outputs.LambdaRoleArn
-        CodeS3Bucket: !Ref GlueCodeBucket
-        CodeS3Key: !Ref GlueCodeKey
+        CodeS3Bucket: !Ref GlueRunLambdaCodeBucket
+        CodeS3Key: !Ref GlueRunLambdaCodeKey

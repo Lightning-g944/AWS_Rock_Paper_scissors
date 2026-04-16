@@ -23,5 +23,13 @@
   {
     "ParameterKey":"GlueCodeKey",
     "ParameterValue": "artifacts/scripts/rps_glue_code.py"
+  },
+  {
+    "ParameterKey": "GlueRunLambdaCodeBucket",
+    "ParameterValue": "rps-temp-templates"
+  },
+  {
+    "ParameterKey": "GlueRunLambdaCodeKey",
+    "ParameterValue": "artifacts/glue-lambda-code.zip"
   }
 ]

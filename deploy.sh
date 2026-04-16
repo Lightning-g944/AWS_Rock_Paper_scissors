@@ -22,9 +22,18 @@ fi
 
 echo "Packaging and uploading Lambda code"
 cd components/lambda
-zip -r lambda.zip *.py
+zip -r lambda.zip user_actions.py
 aws s3 cp lambda.zip "s3://$BUCKET_NAME/$LAMBDA_S3_KEY" --region "$REGION"
 rm lambda.zip
+cd ../..
+
+GLUE_RUN_LAMBDA_S3_KEY="artifacts/glue-lambda-code.zip"
+
+echo "Packaging and uploading Run glue job Lambda code"
+cd components/lambda
+zip -r glue-lambda-code.zip Trigger_GlueJob.py
+aws s3 cp lambda.zip "s3://$BUCKET_NAME/$GLUE_RUN_LAMBDA_S3_KEY" --region "$REGION"
+rm glue-lambda-code.zip
 cd ../..
 
 echo "Uploading Glue script to S3"
