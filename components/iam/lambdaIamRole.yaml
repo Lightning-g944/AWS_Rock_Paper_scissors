@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM role for AWS Lambda function in Rock Paper Scissors pipeline'
+
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaS3SQSAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:PutObject
+                  - lambda:GetLayerVersion
+                Resource:
+                  - 'arn:aws:s3:::*'
+                  - 'arn:aws:s3:::*/*'
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:GetQueueUrl
+                Resource: !Sub 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:*'
+
+Outputs:
+  LambdaRoleArn:
+    Value: !GetAtt LambdaExecutionRole.Arn
+    Export:
+      Name: LambdaExecutionRoleArn

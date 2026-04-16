@@ -1,0 +1,24 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 'CloudWatch Logs configuration for AWS Glue job in Rock Paper Scissors pipeline'
+
+Parameters:
+  RPSGlueJob:
+    Type: String
+    Description: Name of the AWS Glue job to associate with CloudWatch Logs
+    Default: 'RockPaperScissorsGlueJob'
+
+Resources:
+  RPSCWLogs:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/aws-glue/jobs/${RPSGlueJob}'
+      RetentionInDays: 14
+Outputs:
+  LogGroupName:
+    Description: Name of the CloudWatch Logs log group for the Glue job
+    Value: !Ref RPSCWLogs
+    Export:
+      Name: !Sub '${AWS::StackName}-LogGroupName'
+

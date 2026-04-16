@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SQS queue for Rock Paper Scissors pipeline game results'
+
+Parameters:
+  QueueName:
+    Type: String
+    Default: 'rps-game-results'
+    Description: Name of the SQS queue
+
+Resources:
+  GameResultsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref QueueName
+      VisibilityTimeout: 300  # 5 minutes
+      MessageRetentionPeriod: 345600  # 4 days
+      DelaySeconds: 0
+      MaximumMessageSize: 262144  # 256 KB
+      ReceiveMessageWaitTimeSeconds: 0
+
+  # Optional: Dead Letter Queue for failed messages
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${QueueName}-dlq'
+      MessageRetentionPeriod: 1209600  # 14 days
+
+Outputs:
+  QueueURL:
+    Description: URL of the SQS queue
+    Value: !Ref GameResultsQueue
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueURL'
+
+  QueueArn:
+    Description: ARN of the SQS queue
+    Value: !GetAtt GameResultsQueue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-QueueArn'
+
+  DeadLetterQueueArn:
+    Description: ARN of the dead letter queue
+    Value: !GetAtt DeadLetterQueue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DLQArn'

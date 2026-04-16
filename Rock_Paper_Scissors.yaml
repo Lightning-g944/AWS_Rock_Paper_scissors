@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  BucketNamePrefix:
+    Type: String
+    Default: rps-pipeline
+    Description: Prefix for S3 bucket names
+
+  SQSQueueName:
+    Type: String
+    Default: rps-game-results
+    Description: Name of the SQS queue for game results
+
+  LambdaCodeBucket:
+    Type: String
+    Description: S3 bucket containing the Lambda ZIP package
+
+  LambdaCodeKey:
+    Type: String
+    Description: S3 key for the Lambda ZIP package
+
+  GlueCodeBucket:
+    Type: String
+    Description: S3 Bucket for the Glue code
+
+  GlueCodeKey:
+    Type: String
+    Description: S3 Key for the Glue code
+
+Resources:
+  s3:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL: ./components/s3/s3.yaml
+      Parameters:
+        BucketNamePrefix: !Ref BucketNamePrefix
+        # LambdaFunctionName: !GetAtt LambdaFunction.Outputs.LambdaFunctionName
+  GameResultsQueue:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL: components/sqs/sqs.yaml
+      Parameters:
+        QueueName: !Ref SQSQueueName
+
+  RPSGlueJobRole:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL: components/iam/glueIamRole.yaml
+      Parameters:
+        S3Bucket: !GetAtt s3.Outputs.S3BucketName
+        QueueArn: !GetAtt GameResultsQueue.Outputs.QueueArn
+
+  RPSGlueJob:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL: components/glue/rps_glue.yaml
+      Parameters:
+        GlueRoleArn: !GetAtt RPSGlueJobRole.Outputs.GlueRoleArn
+        ScriptLocation: !Sub s3://${s3.Outputs.S3BucketName}/artifacts/scripts/rps_glue_code.py
+        JobName: RockPaperScissorsGlueJob
+        SQSQueueName: !Ref SQSQueueName
+
+  CloudWatchLogs:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL: components/cloudwatch/RPSCWLogs.yaml
+      Parameters:
+        RPSGlueJob: !GetAtt RPSGlueJob.Outputs.GlueJobName
+
+  LambdaExecutionRole:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL: components/iam/lambdaIamRole.yaml
+
+  LambdaFunction:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - GameResultsQueue
+      - RPSGlueJob
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL: components/lambda/LambdaRPS.yaml
+      Parameters:
+        LambdaIamRoleArn: !GetAtt LambdaExecutionRole.Outputs.LambdaRoleArn
+        CodeS3Bucket: !Ref LambdaCodeBucket
+        CodeS3Key: !Ref LambdaCodeKey
+  LambdaRunGlueJob:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL: components/lambda/LambdaRunGlueJob.yaml
+      Parameters:
+        LambdaIamRoleArn: !GetAtt LambdaExecutionRole.Outputs.LambdaRoleArn
+        CodeS3Bucket: !Ref GlueCodeBucket
+        CodeS3Key: !Ref GlueCodeKey

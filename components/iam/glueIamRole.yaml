@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM role for AWS Glue job triggered by Lambda, reading from SQS and S3'
+
+Parameters:
+  S3Bucket:
+    Type: String
+    Description: Name of the S3 bucket for Glue job input/output
+  
+  QueueArn:
+    Type: String
+    Description: ARN of the SQS queue for Glue job input
+
+Resources:
+  GlueExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      Policies:
+        - PolicyName: GlueSQSS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !Ref QueueArn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:PutObject
+                Resource:
+                  - !Sub 'arn:aws:s3:::${S3Bucket}'
+                  - !Sub 'arn:aws:s3:::${S3Bucket}/*'
+
+Outputs:
+  GlueRoleArn:
+    Value: !GetAtt GlueExecutionRole.Arn
+    Export:
+      Name: GlueExecutionRoleArn

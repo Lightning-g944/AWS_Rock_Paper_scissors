@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Glue job template for Rock Paper Scissors with role passed from nested stack'
+
+Parameters:
+  GlueRoleArn:
+    Type: String
+    Description: ARN of the IAM role for the Glue job
+  ScriptLocation:
+    Type: String
+    Default: 's3://rps-temp-templates/artifacts/scripts/rps_glue_code.py'
+    Description: S3 path to the Glue job script
+  JobName:
+    Type: String
+    Default: 'RockPaperScissorsGlueJob'
+    Description: Name of the Glue job
+  SQSQueueName:
+    Type: String
+    Default: 'rps-game-results'
+    Description: Name of the SQS queue for game results
+
+Resources:
+  RPSGlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Ref JobName
+      Role: !Ref GlueRoleArn
+      Command:
+        Name: glueetl
+        ScriptLocation: !Ref ScriptLocation
+        PythonVersion: '3'
+      GlueVersion: '3.0'
+      NumberOfWorkers: 2
+      WorkerType: Standard
+      DefaultArguments:
+        --job-language: pyspark
+        --enable-continuous-cloudwatch-log: 'true'
+        --enable-metrics: 'true'
+        --enable-spark-ui: 'true'
+        --sqs-queue-url: !Sub 'https://sqs.${AWS::Region}.amazonaws.com/${AWS::AccountId}/${SQSQueueName}'
+
+Outputs:
+  GlueJobName:
+    Description: Name of the Glue job
+    Value: !Ref RPSGlueJob
+  GlueJobArn:
+    Description: ARN of the Glue job
+    Value: !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:job/${RPSGlueJob}'

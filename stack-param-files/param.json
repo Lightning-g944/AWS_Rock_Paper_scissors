@@ -1,0 +1,27 @@
+
+[
+  {
+    "ParameterKey": "BucketNamePrefix",
+    "ParameterValue": "rps-pipeline"
+  },
+  {
+    "ParameterKey": "SQSQueueName",
+    "ParameterValue": "rps-game-results"
+  },
+  {
+    "ParameterKey": "LambdaCodeBucket",
+    "ParameterValue": "rps-temp-templates"
+  },
+  {
+    "ParameterKey": "LambdaCodeKey",
+    "ParameterValue": "artifacts/lambda-code.zip"
+  },
+  {
+    "ParameterKey": "GlueCodeBucket",
+    "ParameterValue":"rps-temp-templates"
+  },
+  {
+    "ParameterKey":"GlueCodeKey",
+    "ParameterValue": "artifacts/scripts/rps_glue_code.py"
+  }
+]
