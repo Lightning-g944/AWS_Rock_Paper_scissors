@@ -3,6 +3,7 @@ import boto3
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from pyspark.context import SparkContext
+from pyspark.sql import SparkSession
 import random
 import logging
 from awsglue.utils import getResolvedOptions
@@ -11,11 +12,16 @@ import sys
 # Initialize Glue context
 sc = SparkContext()
 glueContext = GlueContext(sc)
+spark = glueContext.spark_session
 job = Job(glueContext)
 
 # AWS clients
 s3_client = boto3.client('s3')
 sqs_client = boto3.client('sqs')
+
+# Setup logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 args = getResolvedOptions(
     sys.argv,
@@ -28,13 +34,23 @@ args = getResolvedOptions(
 
 def read_sqs_message(sqs_arn):
     """Read SQS message to extract bucket and key"""
-    queue_url = sqs_arn.replace('arn:aws:sqs:', 'https://').replace(':', '/').rsplit('/', 1)[0]
-    response = sqs_client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=1)
-    
-    if 'Messages' in response:
-        message = json.loads(response['Messages'][0]['Body'])
-        return message.get('bucket'), message.get('key')
-    return None, None
+    try:
+        # Convert SQS ARN to queue URL
+        queue_url = sqs_arn.replace('arn:aws:sqs:', 'https://sqs.').replace(':', '/').replace('//', '/')
+        queue_url = queue_url.replace('https:/sqs./', 'https://sqs.')
+        
+        response = sqs_client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=1)
+        
+        if 'Messages' in response:
+            message = json.loads(response['Messages'][0]['Body'])
+            # Delete the message after processing
+            receipt_handle = response['Messages'][0]['ReceiptHandle']
+            sqs_client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
+            return message.get('bucket'), message.get('key')
+        return None, None
+    except Exception as e:
+        logger.error(f"Error reading SQS message: {e}")
+        return None, None
 
 def system_turn():
     """Generate system's Rock, Paper, Scissors move"""
@@ -52,55 +68,110 @@ def score(player_move, system_move):
     else:
         return 'loss'
 
-# Main execution
-bucket, key = read_sqs_message(args['sqs_arn'])
+def process_parquet_data(s3_path):
+    """Read and process parquet file from S3"""
+    try:
+        # Read parquet file using Glue DynamicFrame
+        dynamic_frame = glueContext.create_dynamic_frame.from_options(
+            connection_type="s3",
+            connection_options={"paths": [s3_path]},
+            format="parquet"
+        )
+        
+        # Convert to Spark DataFrame for easier processing
+        df = dynamic_frame.toDF()
+        
+        # Show schema for debugging
+        logger.info("Parquet file schema:")
+        df.printSchema()
+        
+        # Collect all rows to process each user action
+        rows = df.collect()
+        results = []
+        
+        for row in rows:
+            # Extract player move from the row
+            # Assuming the parquet has columns: user_id, action
+            user_id = row['user_id']
+            player_move = row['action']
+            
+            # Generate system move and calculate result
+            system_move = system_turn()
+            result = score(player_move, system_move)
+            
+            results.append({
+                'user_id': user_id,
+                'player_move': player_move,
+                'system_move': system_move,
+                'result': result
+            })
+            
+            logger.info(f"User {user_id}: Player: {player_move}, System: {system_move}, Result: {result}")
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error processing parquet data: {e}")
+        return []
 
-if bucket and key:
-    obj = s3_client.get_object(Bucket=bucket, Key=key)
-    player_data = json.loads(obj['Body'].read())
-    
-    system_move = system_turn()
-    result = score(player_data['move'], system_move)
-    
-    output_data = {
-        'player_move': player_data['move'],
-        'system_move': system_move,
-        'result': result
-    }
-    
-    s3_client.put_object(Bucket=bucket, Key=args['output_path'], Body=json.dumps(output_data))
-
-# Setup logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+def write_results_to_s3(results, bucket, output_key):
+    """Write results to S3 as JSON"""
+    try:
+        # Convert results to DataFrame
+        results_df = spark.createDataFrame(results)
+        
+        # Convert to DynamicFrame
+        results_dynamic_frame = glueContext.create_dynamic_frame.from_df(
+            results_df, 
+            glueContext, 
+            "results_frame"
+        )
+        
+        # Write as JSON to S3
+        glueContext.write_dynamic_frame.from_options(
+            frame=results_dynamic_frame,
+            connection_type="s3",
+            connection_options={"path": f"s3://{bucket}/{output_key}"},
+            format="json"
+        )
+        
+        logger.info(f"Results written to s3://{bucket}/{output_key}")
+        
+    except Exception as e:
+        logger.error(f"Error writing results to S3: {e}")
 
 def main():
     """Main function to run the Rock Paper Scissors Glue job"""
-    job.init(args['JOB_NAME'], args)
-    
-    bucket, key = read_sqs_message(args['sqs_arn'])
-    
-    if bucket and key:
-        logger.info(f"Processing file from bucket: {bucket}, key: {key}")
-        obj = s3_client.get_object(Bucket=bucket, Key=key)
-        player_data = json.loads(obj['Body'].read())
+    try:
+        job.init(args['JOB_NAME'], args)
         
-        system_move = system_turn()
-        result = score(player_data['move'], system_move)
-        logger.info(f"Player: {player_data['move']}, System: {system_move}, Result: {result}")
+        bucket, key = read_sqs_message(args['sqs_arn'])
         
-        output_data = {
-            'player_move': player_data['move'],
-            'system_move': system_move,
-            'result': result
-        }
+        if bucket and key:
+            logger.info(f"Processing parquet file from bucket: {bucket}, key: {key}")
+            
+            # Construct S3 path
+            s3_path = f"s3://{bucket}/{key}"
+            
+            # Process the parquet data
+            results = process_parquet_data(s3_path)
+            
+            if results:
+                # Write results to S3
+                output_key = args['output_path'].lstrip('/')  # Remove leading slash if present
+                write_results_to_s3(results, bucket, output_key)
+                logger.info(f"Successfully processed {len(results)} records")
+            else:
+                logger.warning("No data processed from parquet file")
+                
+        else:
+            logger.warning("No messages found in SQS queue")
         
-        s3_client.put_object(Bucket=bucket, Key=args['output_path'], Body=json.dumps(output_data))
-        logger.info(f"Output written to {args['output_path']}")
-    else:
-        logger.warning("No messages found in SQS queue")
-    
-    job.commit()
+        job.commit()
+        
+    except Exception as e:
+        logger.error(f"Job failed with error: {e}")
+        raise
 
 if __name__ == '__main__':
     main()
