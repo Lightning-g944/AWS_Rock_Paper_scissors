@@ -42,6 +42,8 @@ Resources:
                 Resource:
                   - !Sub 'arn:aws:s3:::${S3Bucket}'
                   - !Sub 'arn:aws:s3:::${S3Bucket}/*'
+                  - 'arn:aws:s3:::rps-temp-templates'
+                  - 'arn:aws:s3:::rps-temp-templates/*'
 
 Outputs:
   GlueRoleArn:

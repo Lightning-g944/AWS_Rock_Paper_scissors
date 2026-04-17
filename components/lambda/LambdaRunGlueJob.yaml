@@ -22,7 +22,7 @@ Resources:
       FunctionName: RPSRunGlueJob
       Runtime: python3.11
       Role: !Ref LambdaIamRoleArn
-      Handler: Trigger_Gluejob.lambda_handler
+      Handler: Trigger_GlueJob.lambda_handler
       Code:
         S3Bucket: !Ref CodeS3Bucket
         S3Key: !Ref CodeS3Key

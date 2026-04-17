@@ -6,13 +6,6 @@ Parameters:
     Type: String
     Default: 'rps-pipeline'
     Description: Prefix for S3 bucket names
-  SQSQueueArn:
-    Type: String
-    Description: ARN of the SQS queue for S3 event notifications
-  # LambdaFunctionName:
-  #   Type: String
-  #   Default: 'RPSLambdaFunction'
-  #   Description: Name of the Lambda function to trigger on S3 events
 
 Resources:
   S3Bucket:
@@ -26,15 +19,7 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-      NotificationConfiguration:
-        QueueConfigurations:
-          - Event: s3:ObjectCreated:*
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: 'Landing/'
-            Queue: !Ref SQSQueueArn
+
   S3BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:

@@ -30,14 +30,12 @@ Parameters:
 Resources:
   s3:
     Type: AWS::CloudFormation::Stack
-    DependsOn: GameResultsQueue
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
       TemplateURL: ./components/s3/s3.yaml
       Parameters:
         BucketNamePrefix: !Ref BucketNamePrefix
-        SQSQueueArn: !GetAtt GameResultsQueue.Outputs.QueueArn
         
   GameResultsQueue:
     Type: AWS::CloudFormation::Stack
@@ -47,6 +45,7 @@ Resources:
       TemplateURL: components/sqs/sqs.yaml
       Parameters:
         QueueName: !Ref SQSQueueName
+        S3BucketName: !Sub '${BucketNamePrefix}-landing-zone'
   
 
   SQSTrigger:

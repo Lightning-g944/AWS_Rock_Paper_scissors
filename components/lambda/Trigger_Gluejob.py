@@ -10,7 +10,7 @@ JOB_NAME = 'RockPaperScissorsGlueJob'
 
 def lambda_handler(event, context):
     for record in event['Records']:
-        body = json.loads(record['Body'])
+        body = json.loads(record['body'])
         # S3 event notification body
         s3_info = body['Records'][0]['s3']
         bucket = s3_info['bucket']['name']

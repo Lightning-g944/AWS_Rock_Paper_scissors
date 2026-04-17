@@ -7,6 +7,10 @@ Parameters:
     Default: 'rps-game-results'
     Description: Name of the SQS queue
 
+  S3BucketName:
+    Type: String
+    Description: Name of the S3 bucket allowed to send notifications to this queue
+
 Resources:
   GameResultsQueue:
     Type: AWS::SQS::Queue
@@ -41,6 +45,9 @@ Resources:
             Action:
               - sqs:SendMessage
             Resource: !GetAtt GameResultsQueue.Arn
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub 'arn:aws:s3:::${S3BucketName}'
 
 Outputs:
   QueueURL:

@@ -2,6 +2,7 @@ import json
 import boto3
 from awsglue.context import GlueContext
 from awsglue.job import Job
+from awsglue.dynamicframe import DynamicFrame
 from pyspark.context import SparkContext
 from pyspark.sql import SparkSession
 import random
@@ -95,20 +96,19 @@ def write_results_to_s3(results, bucket, output_key):
         # Convert results to DataFrame
         results_df = spark.createDataFrame(results)
         
-        # Convert to DynamicFrame
-        results_dynamic_frame = glueContext.create_dynamic_frame.from_df(
+        results_dynamic_frame = DynamicFrame.fromDF(
             results_df, 
             glueContext, 
             "results_frame"
         )
         
-        # Write as JSON to S3
+        # Write as parquet to S3
         glueContext.write_dynamic_frame.from_options(
             frame=results_dynamic_frame,
             connection_type="s3",
             connection_options={"path": f"s3://{bucket}/{output_key}"},
-            format="json"
-        )
+            format="parquet"
+        ).repartition(1)
         
         logger.info(f"Results written to s3://{bucket}/{output_key}")
         
