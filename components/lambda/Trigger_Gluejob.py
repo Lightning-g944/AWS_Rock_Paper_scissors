@@ -1,16 +1,28 @@
-# lambda to trigger glue job when a file is uploaded to the landing zone
 import boto3
+import json
 import logging
+
 logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+glue = boto3.client('glue')
+JOB_NAME = 'RockPaperScissorsGlueJob'
 
 def lambda_handler(event, context):
-    """Lambda function to trigger Glue job when a file is uploaded to the landing zone"""
-    try:
-        glue = boto3.client('glue')
-        job_name = 'RPSGlueJob'
+    for record in event['Records']:
+        body = json.loads(record['Body'])
+        # S3 event notification body
+        s3_info = body['Records'][0]['s3']
+        bucket = s3_info['bucket']['name']
+        key = s3_info['object']['key']
 
-        response = glue.start_job_run(JobName=job_name)
-        logger.info(f"Glue job triggered successfully: {response['JobRunId']}")
+        response = glue.start_job_run(
+            JobName=JOB_NAME,
+            Arguments={
+                '--input_path': f's3://{bucket}/{key}',
+                '--output_path': f's3://{bucket}/output/',
+            }
+        )
+        logger.info(f"Started Glue job run: {response['JobRunId']} for s3://{bucket}/{key}")
 
-    except Exception as e:
-        logger.error(f"Error triggering Glue job: {e}")
+    return {'statusCode': 200}

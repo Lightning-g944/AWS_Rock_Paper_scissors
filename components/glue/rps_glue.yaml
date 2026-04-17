@@ -13,10 +13,6 @@ Parameters:
     Type: String
     Default: 'RockPaperScissorsGlueJob'
     Description: Name of the Glue job
-  SQSQueueName:
-    Type: String
-    Default: 'rps-game-results'
-    Description: Name of the SQS queue for game results
 
 Resources:
   RPSGlueJob:
@@ -36,7 +32,6 @@ Resources:
         --enable-continuous-cloudwatch-log: 'true'
         --enable-metrics: 'true'
         --enable-spark-ui: 'true'
-        --sqs-queue-url: !Sub 'https://sqs.${AWS::Region}.amazonaws.com/${AWS::AccountId}/${SQSQueueName}'
 
 Outputs:
   GlueJobName:

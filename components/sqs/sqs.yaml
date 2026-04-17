@@ -24,6 +24,23 @@ Resources:
     Properties:
       QueueName: !Sub '${QueueName}-dlq'
       MessageRetentionPeriod: 1209600  # 14 days
+  
+  # SQS Queue Policy to allow S3 to send messages
+  SQSQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref GameResultsQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowS3ToSendMessage
+            Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action:
+              - sqs:SendMessage
+            Resource: !GetAtt GameResultsQueue.Arn
 
 Outputs:
   QueueURL:

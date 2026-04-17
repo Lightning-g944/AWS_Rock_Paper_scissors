@@ -30,13 +30,15 @@ Parameters:
 Resources:
   s3:
     Type: AWS::CloudFormation::Stack
+    DependsOn: GameResultsQueue
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
       TemplateURL: ./components/s3/s3.yaml
       Parameters:
         BucketNamePrefix: !Ref BucketNamePrefix
-        # LambdaFunctionName: !GetAtt LambdaFunction.Outputs.LambdaFunctionName
+        SQSQueueArn: !GetAtt GameResultsQueue.Outputs.QueueArn
+        
   GameResultsQueue:
     Type: AWS::CloudFormation::Stack
     DeletionPolicy: Delete
@@ -45,6 +47,15 @@ Resources:
       TemplateURL: components/sqs/sqs.yaml
       Parameters:
         QueueName: !Ref SQSQueueName
+  
+
+  SQSTrigger:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt GameResultsQueue.Outputs.QueueArn
+      FunctionName: !GetAtt LambdaRunGlueJob.Outputs.LambdaFunctionArn
+      BatchSize: 1
+      Enabled: true
 
   RPSGlueJobRole:
     Type: AWS::CloudFormation::Stack
@@ -64,9 +75,7 @@ Resources:
       TemplateURL: components/glue/rps_glue.yaml
       Parameters:
         GlueRoleArn: !GetAtt RPSGlueJobRole.Outputs.GlueRoleArn
-        ScriptLocation: !Sub s3://${s3.Outputs.S3BucketName}/artifacts/scripts/rps_glue_code.py
         JobName: RockPaperScissorsGlueJob
-        SQSQueueName: !Ref SQSQueueName
 
   CloudWatchLogs:
     Type: AWS::CloudFormation::Stack

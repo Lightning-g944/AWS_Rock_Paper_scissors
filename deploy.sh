@@ -32,7 +32,7 @@ GLUE_RUN_LAMBDA_S3_KEY="artifacts/glue-lambda-code.zip"
 echo "Packaging and uploading Run glue job Lambda code"
 cd components/lambda
 zip -r glue-lambda-code.zip Trigger_GlueJob.py
-aws s3 cp lambda.zip "s3://$BUCKET_NAME/$GLUE_RUN_LAMBDA_S3_KEY" --region "$REGION"
+aws s3 cp glue-lambda-code.zip "s3://$BUCKET_NAME/$GLUE_RUN_LAMBDA_S3_KEY" --region "$REGION"
 rm glue-lambda-code.zip
 cd ../..
 

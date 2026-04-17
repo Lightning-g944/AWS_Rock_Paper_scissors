@@ -6,7 +6,9 @@ Parameters:
     Type: String
     Default: 'rps-pipeline'
     Description: Prefix for S3 bucket names
-
+  SQSQueueArn:
+    Type: String
+    Description: ARN of the SQS queue for S3 event notifications
   # LambdaFunctionName:
   #   Type: String
   #   Default: 'RPSLambdaFunction'
@@ -24,16 +26,15 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-      # NotificationConfiguration:
-      #   LambdaConfigurations: # if any file is created in the landing zone, trigger the Lambda function
-      #     - Event: 's3:ObjectCreated:*'
-      #       Function: !Ref 'LambdaFunctionName'
-      #       Filter:
-      #         S3Key:
-      #           Rules:
-      #             - Name: prefix
-      #               Value: 'landing-zone/'
-  
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: 'Landing/'
+            Queue: !Ref SQSQueueArn
   S3BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -41,19 +42,22 @@ Resources:
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Sid: AllowS3ServiceAccess
-            Effect: Allow
-            Principal:
-              Service: s3.amazonaws.com
-            Action:
-              - s3:GetObject
-              - s3:PutObject
-            Resource: !Sub arn:aws:s3:::${S3Bucket}/*
-            
           - Sid: AllowGlueJobAccess
             Effect: Allow
             Principal:
               Service: glue.amazonaws.com
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:ListBucket
+            Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}
+              - !Sub arn:aws:s3:::${S3Bucket}/*
+          - Sid: AllowLambdaAccess
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
             Action:
               - s3:GetObject
               - s3:PutObject

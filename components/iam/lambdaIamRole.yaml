@@ -14,6 +14,7 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonSQSFullAccess
       Policies:
         - PolicyName: LambdaS3SQSAccess
           PolicyDocument:
@@ -24,14 +25,24 @@ Resources:
                   - s3:GetObject
                   - s3:ListBucket
                   - s3:PutObject
-                  - lambda:GetLayerVersion
                 Resource:
                   - 'arn:aws:s3:::*'
                   - 'arn:aws:s3:::*/*'
               - Effect: Allow
                 Action:
+                  - lambda:GetLayerVersion
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - glue:StartJobRun
+                Resource: '*'
+              - Effect: Allow
+                Action:
                   - sqs:SendMessage
                   - sqs:GetQueueUrl
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
                 Resource: !Sub 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:*'
 
 Outputs:

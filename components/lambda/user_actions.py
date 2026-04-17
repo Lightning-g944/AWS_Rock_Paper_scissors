@@ -42,7 +42,7 @@ def lambda_handler(event, context):
         create_parquet_file(file_path, data)
 
         # Upload to S3
-        s3_key = 'employees.parquet'
+        s3_key = 'Landing/employees.parquet'
         s3.upload_file(file_path, bucket_name, s3_key)
 
         logger.info(f"Parquet file uploaded to S3 at: s3://{bucket_name}/{s3_key}")

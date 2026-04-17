@@ -17,7 +17,6 @@ job = Job(glueContext)
 
 # AWS clients
 s3_client = boto3.client('s3')
-sqs_client = boto3.client('sqs')
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -25,32 +24,8 @@ logger.setLevel(logging.INFO)
 
 args = getResolvedOptions(
     sys.argv,
-    ["JOB_NAME", 
-     "input_path", 
-     "output_path", 
-     "sqs_arn",
-     ]
+    ["JOB_NAME", "input_path", "output_path"]
 )
-
-def read_sqs_message(sqs_arn):
-    """Read SQS message to extract bucket and key"""
-    try:
-        # Convert SQS ARN to queue URL
-        queue_url = sqs_arn.replace('arn:aws:sqs:', 'https://sqs.').replace(':', '/').replace('//', '/')
-        queue_url = queue_url.replace('https:/sqs./', 'https://sqs.')
-        
-        response = sqs_client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=1)
-        
-        if 'Messages' in response:
-            message = json.loads(response['Messages'][0]['Body'])
-            # Delete the message after processing
-            receipt_handle = response['Messages'][0]['ReceiptHandle']
-            sqs_client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
-            return message.get('bucket'), message.get('key')
-        return None, None
-    except Exception as e:
-        logger.error(f"Error reading SQS message: {e}")
-        return None, None
 
 def system_turn():
     """Generate system's Rock, Paper, Scissors move"""
@@ -144,31 +119,23 @@ def main():
     """Main function to run the Rock Paper Scissors Glue job"""
     try:
         job.init(args['JOB_NAME'], args)
-        
-        bucket, key = read_sqs_message(args['sqs_arn'])
-        
-        if bucket and key:
-            logger.info(f"Processing parquet file from bucket: {bucket}, key: {key}")
-            
-            # Construct S3 path
-            s3_path = f"s3://{bucket}/{key}"
-            
-            # Process the parquet data
-            results = process_parquet_data(s3_path)
-            
-            if results:
-                # Write results to S3
-                output_key = args['output_path'].lstrip('/')  # Remove leading slash if present
-                write_results_to_s3(results, bucket, output_key)
-                logger.info(f"Successfully processed {len(results)} records")
-            else:
-                logger.warning("No data processed from parquet file")
-                
+
+        input_path = args['input_path']
+        output_path = args['output_path']
+        bucket = input_path.split('/')[2]
+
+        logger.info(f"Processing parquet file: {input_path}")
+        results = process_parquet_data(input_path)
+
+        if results:
+            output_key = '/'.join(output_path.replace('s3://', '').split('/')[1:])
+            write_results_to_s3(results, bucket, output_key)
+            logger.info(f"Successfully processed {len(results)} records")
         else:
-            logger.warning("No messages found in SQS queue")
-        
+            logger.warning("No data processed from parquet file")
+
         job.commit()
-        
+
     except Exception as e:
         logger.error(f"Job failed with error: {e}")
         raise
